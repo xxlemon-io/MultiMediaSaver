@@ -2,18 +2,18 @@
 
 A responsive web application for downloading images and videos from Twitter/X and Instagram without using official APIs.
 
-## Features
+## Overview
+
+MultiMediaSaver bundles a Playwright-powered scraper and a Next.js UI so you can self-host a downloader for Twitter/X today and Instagram in the future. The backend can also be called programmatically to automate downloads or integrate with other internal tools (non-commercial only).
+
+## Key Features
 
 - Download images and videos from Twitter/X links
-- Instagram support (coming soon)
+- Planned Instagram support via remote parsers
 - Automatic cleanup removes previous downloads when parsing a new link
-- Download every fetched asset at once as a ZIP archive
+- Batch download every fetched asset as a ZIP archive
 - Responsive design for mobile and desktop
-- No official API required - uses a self-hosted Playwright scraper
-
-## Credits
-
-Built by [@xxlemon-io](https://github.com/xxlemon-io)
+- No official API required; uses a self-hosted Playwright scraper
 
 ## Tech Stack
 
@@ -26,54 +26,42 @@ Built by [@xxlemon-io](https://github.com/xxlemon-io)
 
 ### Prerequisites
 
-- Node.js 18+ 
+- Node.js 18+
 - npm or yarn
 
-### Installation
+### Setup
 
 1. Clone the repository:
-```bash
-git clone <repository-url>
-cd MultiMediaSaver
-```
-
+   ```bash
+   git clone <repository-url>
+   cd MultiMediaSaver
+   ```
 2. Install dependencies:
-```bash
-npm install
-```
-
-3. Install Playwright browsers (Chromium only is required):
-```bash
-npx playwright install chromium
-```
-
+   ```bash
+   npm install
+   ```
+3. Install Playwright browsers (Chromium only):
+   ```bash
+   npx playwright install chromium
+   ```
 4. Configure environment variables:
-```bash
-# Copy env.local.example to .env.local
-# On Windows PowerShell:
-Copy-Item env.local.example .env.local
-# On Linux/Mac:
-cp env.local.example .env.local
-```
-
-Edit `.env.local` if you plan to enable future Instagram support (Twitter scraping is fully self-hosted and does not need configuration).
-
-4. Create the downloads directory:
-```bash
-mkdir -p public/downloads
-```
-
+   ```bash
+   # Copy env.local.example to .env.local
+   # Windows PowerShell
+   Copy-Item env.local.example .env.local
+   # Linux / macOS
+   cp env.local.example .env.local
+   ```
+   Edit `.env.local` if you plan to enable the future Instagram parser.
 5. Create the downloads directory:
-```bash
-mkdir -p public/downloads
-```
-
-6. Run the development server:
-```bash
-npm run dev
-```
-
-7. Open [http://localhost:3000](http://localhost:3000) in your browser.
+   ```bash
+   mkdir -p public/downloads
+   ```
+6. Start the development server:
+   ```bash
+   npm run dev
+   ```
+7. Open [http://localhost:3000](http://localhost:3000).
 
 ## Configuration
 
@@ -85,21 +73,19 @@ npm run dev
 
 ### Instagram (Future)
 
-- Instagram support still relies on configurable parser endpoints:
-```bash
-INSTAGRAM_PARSER_ENDPOINT=https://api.example.com/instagram
-INSTAGRAM_PARSER_KEY=optional-api-key
-```
+- Instagram support will rely on configurable parser endpoints:
+  ```bash
+  INSTAGRAM_PARSER_ENDPOINT=https://api.example.com/instagram
+  INSTAGRAM_PARSER_KEY=optional-api-key
+  ```
 
-## Public API
+## API Usage
 
-The backend endpoint used by the UI can also be called programmatically.
+The backend endpoints can be invoked directly.
 
-### Endpoints
+### `POST /api/media`
 
-#### `POST /api/media`
-
-### Request Body
+Request body:
 
 ```json
 {
@@ -107,7 +93,7 @@ The backend endpoint used by the UI can also be called programmatically.
 }
 ```
 
-##### Success Response
+Success response:
 
 ```json
 {
@@ -129,7 +115,7 @@ The backend endpoint used by the UI can also be called programmatically.
 - `downloadUrl` is relative; prepend your host when sharing externally.
 - `type` is `image` or `video`.
 
-##### Error Response
+Error response:
 
 ```json
 {
@@ -138,14 +124,19 @@ The backend endpoint used by the UI can also be called programmatically.
 }
 ```
 
-The HTTP status conveys the reason (400 invalid URL, 404 no media, 500/504 scraping errors, 501 Instagram placeholder).
+Example:
 
-##### CLI Example
-#### `POST /api/download-all`
+```bash
+curl -X POST http://localhost:3000/api/media \
+  -H "Content-Type: application/json" \
+  -d '{"url": "https://x.com/user/status/1234567890"}'
+```
+
+### `POST /api/download-all`
 
 Bundle previously fetched assets (from `/api/media`) into a single ZIP file stored under `public/downloads`.
 
-##### Request Body
+Request body:
 
 ```json
 {
@@ -158,7 +149,7 @@ Bundle previously fetched assets (from `/api/media`) into a single ZIP file stor
 }
 ```
 
-##### Success Response
+Success response:
 
 ```json
 {
@@ -167,7 +158,7 @@ Bundle previously fetched assets (from `/api/media`) into a single ZIP file stor
 }
 ```
 
-##### Error Response
+Error response:
 
 ```json
 {
@@ -176,21 +167,16 @@ Bundle previously fetched assets (from `/api/media`) into a single ZIP file stor
 }
 ```
 
-
-```bash
-curl -X POST http://localhost:3000/api/media \
-  -H "Content-Type: application/json" \
-  -d '{"url": "https://x.com/user/status/1234567890"}'
-```
-
 ## Docker Deployment
 
-Build the Docker image:
+Build the image:
+
 ```bash
 docker build -t MultiMediaSaver .
 ```
 
 Run the container:
+
 ```bash
 docker run -p 3000:3000 --env-file .env.local MultiMediaSaver
 ```
@@ -202,7 +188,19 @@ docker run -p 3000:3000 --env-file .env.local MultiMediaSaver
 - Parser timeout: 15 seconds
 - Download timeout: 60 seconds
 
+## Credits
+
+Built by [@xxlemon-io](https://github.com/xxlemon-io)
+
+## Disclaimer / 免责声明
+
+- This project is provided solely for personal study and research purposes.
+- Commercial use, resale, or integration into paid services is strictly prohibited.
+- Using the project for any unlawful, harmful, or privacy-invasive activity is strictly prohibited.
+- 本项目仅供学习和研究使用，严禁用于任何商业化场景。
+- 严禁将本项目用于任何违法、违规或侵权行为，由此产生的风险由使用者自行承担。
+
 ## License
 
-MIT
+This project is distributed under the non-commercial Educational and Research License described in `LICENSE`. By using the project you agree to abide by its restrictions.
 
