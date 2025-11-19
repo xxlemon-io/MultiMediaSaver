@@ -53,10 +53,7 @@ MultiMediaSaver bundles a Playwright-powered scraper and a Next.js UI so you can
    cp env.local.example .env.local
    ```
    Edit `.env.local` if you plan to enable the future Instagram parser.
-5. Create the downloads directory:
-   ```bash
-   mkdir -p public/downloads
-   ```
+5. The downloads directory will be created automatically in `tmp/downloads` when needed.
 6. Start the development server:
    ```bash
    npm run dev
@@ -134,7 +131,7 @@ curl -X POST http://localhost:3000/api/media \
 
 ### `POST /api/download-all`
 
-Bundle previously fetched assets (from `/api/media`) into a single ZIP file stored under `public/downloads`.
+Bundle previously fetched assets (from `/api/media`) into a single ZIP file stored in the temporary downloads directory (`tmp/downloads`).
 
 Request body:
 

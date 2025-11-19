@@ -2,7 +2,7 @@ import { writeFile, mkdir } from "fs/promises";
 import { join } from "path";
 import { randomUUID } from "crypto";
 
-const DOWNLOADS_DIR = join(process.cwd(), "public", "downloads");
+const DOWNLOADS_DIR = join(process.cwd(), "tmp", "downloads");
 const MAX_FILE_SIZE = 500 * 1024 * 1024; // 500MB
 
 interface SaveMediaResult {

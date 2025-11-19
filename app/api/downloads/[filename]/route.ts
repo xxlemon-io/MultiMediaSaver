@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { readFile, access } from "fs/promises";
 import { join } from "path";
 
-const DOWNLOADS_DIR = join(process.cwd(), "public", "downloads");
+const DOWNLOADS_DIR = join(process.cwd(), "tmp", "downloads");
 
 export async function GET(
   request: NextRequest,
