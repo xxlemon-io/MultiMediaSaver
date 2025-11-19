@@ -11,6 +11,10 @@ A responsive web application for downloading images and videos from Twitter/X an
 - Responsive design for mobile and desktop
 - No official API required - uses a self-hosted Playwright scraper
 
+## Credits
+
+Built by [@xxlemon-io](https://github.com/xxlemon-io)
+
 ## Tech Stack
 
 - Next.js 14 (App Router)

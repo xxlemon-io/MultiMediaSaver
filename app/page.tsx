@@ -202,6 +202,17 @@ export default function Home() {
           </div>
         )}
       </div>
+      <footer className="mt-12 text-center text-sm text-gray-500 dark:text-gray-400">
+        Built by{" "}
+        <a
+          href="https://github.com/xxlemon-io"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-blue-600 dark:text-blue-400 hover:underline"
+        >
+          @xxlemon-io
+        </a>
+      </footer>
     </main>
   );
 }
