@@ -36,12 +36,19 @@ async function resolveAssetPath(asset: DownloadAssetInput) {
     throw new DownloadAllError("Missing download URL for asset", 400);
   }
 
-  const normalized = asset.downloadUrl.replace(/^\/+/, "");
-  if (!normalized.startsWith("downloads/")) {
+  // Handle both /api/downloads/ and /downloads/ paths
+  let normalized = asset.downloadUrl.replace(/^\/+/, "");
+  let filename: string;
+  
+  if (normalized.startsWith("api/downloads/")) {
+    filename = normalized.replace("api/downloads/", "");
+  } else if (normalized.startsWith("downloads/")) {
+    filename = normalized.replace("downloads/", "");
+  } else {
     throw new DownloadAllError("Invalid asset path", 400);
   }
 
-  const absolutePath = join(PUBLIC_DIR, normalized);
+  const absolutePath = join(DOWNLOADS_DIR, filename);
   try {
     await access(absolutePath);
   } catch {
@@ -77,7 +84,7 @@ export async function POST(request: NextRequest) {
 
     const zipFilename = `${Date.now()}-${randomUUID().slice(0, 8)}.zip`;
     const zipPath = join(DOWNLOADS_DIR, zipFilename);
-    const zipUrl = `/downloads/${zipFilename}`;
+    const zipUrl = `/api/downloads/${zipFilename}`;
 
     const output = createWriteStream(zipPath);
     const archive = archiver("zip", { zlib: { level: 9 } });

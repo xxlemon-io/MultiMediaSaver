@@ -71,7 +71,7 @@ export async function saveMedia(
   }
 
   return {
-    publicPath: `/downloads/${filename}`,
+    publicPath: `/api/downloads/${filename}`,
     filename,
   };
 }

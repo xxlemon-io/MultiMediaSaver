@@ -34,6 +34,8 @@
     # 这一步会自动包含运行所需的最小 node_modules
     COPY --from=builder /app/.next/standalone ./
     COPY --from=builder /app/.next/static ./.next/static
+    # 复制 public 目录以支持下载文件
+    COPY --from=builder /app/public ./public
     
     EXPOSE 3000
     CMD ["node", "server.js"]
