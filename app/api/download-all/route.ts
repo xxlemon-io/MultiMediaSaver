@@ -5,8 +5,7 @@ import { join, basename } from "path";
 import { randomUUID } from "crypto";
 import archiver from "archiver";
 
-const PUBLIC_DIR = join(process.cwd(), "public");
-const DOWNLOADS_DIR = join(PUBLIC_DIR, "downloads");
+const DOWNLOADS_DIR = join(process.cwd(), "tmp", "downloads");
 
 class DownloadAllError extends Error {
   status: number;
@@ -36,14 +35,12 @@ async function resolveAssetPath(asset: DownloadAssetInput) {
     throw new DownloadAllError("Missing download URL for asset", 400);
   }
 
-  // Handle both /api/downloads/ and /downloads/ paths
+  // Handle /api/downloads/ path
   let normalized = asset.downloadUrl.replace(/^\/+/, "");
   let filename: string;
   
   if (normalized.startsWith("api/downloads/")) {
     filename = normalized.replace("api/downloads/", "");
-  } else if (normalized.startsWith("downloads/")) {
-    filename = normalized.replace("downloads/", "");
   } else {
     throw new DownloadAllError("Invalid asset path", 400);
   }

@@ -98,7 +98,7 @@ describe('saveMedia', () => {
       // Verify filename format: timestamp-uuid.ext
       expect(result.filename).toMatch(/^\d+-12345678\.jpg$/);
       expect(result.filename).toContain(mockTimestamp.toString());
-      expect(result.publicPath).toBe(`/downloads/${result.filename}`);
+      expect(result.publicPath).toBe(`/api/downloads/${result.filename}`);
     });
 
     it('should generate unique filenames for multiple calls', async () => {
@@ -125,8 +125,8 @@ describe('saveMedia', () => {
       // mkdir should be called with recursive: true
       expect(mockedMkdir).toHaveBeenCalled();
       const mkdirCall = mockedMkdir.mock.calls[0];
-      // Check that mkdir was called with a path ending in 'public/downloads' and recursive option
-      expect(mkdirCall[0]).toContain('public/downloads');
+      // Check that mkdir was called with a path ending in 'tmp/downloads' and recursive option
+      expect(mkdirCall[0]).toContain('tmp/downloads');
       expect(mkdirCall[1]).toEqual({ recursive: true });
     });
 
@@ -203,7 +203,7 @@ describe('saveMedia', () => {
 
       expect(result).toHaveProperty('publicPath');
       expect(result).toHaveProperty('filename');
-      expect(result.publicPath).toMatch(/^\/downloads\/.+/);
+      expect(result.publicPath).toMatch(/^\/api\/downloads\/.+/);
       expect(result.filename).toMatch(/^\d+-12345678\.jpg$/);
     });
   });

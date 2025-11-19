@@ -1,7 +1,7 @@
 import { readdir, stat, rm, mkdir } from "fs/promises";
 import { join } from "path";
 
-const DOWNLOADS_DIR = join(process.cwd(), "public", "downloads");
+const DOWNLOADS_DIR = join(process.cwd(), "tmp", "downloads");
 
 export async function resetDownloadsDir() {
   try {
