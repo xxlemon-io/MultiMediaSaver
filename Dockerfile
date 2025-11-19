@@ -10,6 +10,9 @@ ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
 FROM base AS deps
 WORKDIR /app
 
+# Upgrade npm to support lockfileVersion 3
+RUN npm install -g npm@latest
+
 COPY package*.json ./
 # Cached if package.json unchanged
 RUN npm ci --omit=dev
@@ -19,6 +22,9 @@ RUN npm ci --omit=dev
 # -----------------------------
 FROM base AS builder
 WORKDIR /app
+
+# Upgrade npm to support lockfileVersion 3
+RUN npm install -g npm@latest
 
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
