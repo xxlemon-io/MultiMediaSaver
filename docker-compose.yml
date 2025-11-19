@@ -11,12 +11,10 @@ services:
       NODE_ENV: production
       PORT: 3000
       PLAYWRIGHT_BROWSERS_PATH: /ms-playwright
-      INSTAGRAM_PARSER_ENDPOINT: ${INSTAGRAM_PARSER_ENDPOINT:-}
-      INSTAGRAM_PARSER_KEY: ${INSTAGRAM_PARSER_KEY:-}
+      PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: "1"
     volumes:
       - downloads-data:/app/public/downloads
     restart: unless-stopped
 
 volumes:
   downloads-data:
-
