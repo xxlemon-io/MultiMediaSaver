@@ -1,0 +1,22 @@
+version: "3.9"
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      PLAYWRIGHT_BROWSERS_PATH: /ms-playwright
+      INSTAGRAM_PARSER_ENDPOINT: ${INSTAGRAM_PARSER_ENDPOINT:-}
+      INSTAGRAM_PARSER_KEY: ${INSTAGRAM_PARSER_KEY:-}
+    volumes:
+      - downloads-data:/app/public/downloads
+    restart: unless-stopped
+
+volumes:
+  downloads-data:
+

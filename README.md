@@ -181,6 +181,18 @@ Run the container:
 docker run -p 3000:3000 --env-file .env.local MultiMediaSaver
 ```
 
+### Docker Compose (recommended)
+
+1. Create an `.env.local` file (or reuse the one from development) and set any parser credentials you need.
+2. Start the stack:
+   ```bash
+   docker compose up --build -d
+   ```
+3. Downloads are written to the named volume declared in `docker-compose.yml`. Remove the volume to clear old assets:
+   ```bash
+   docker compose down -v
+   ```
+
 ## Limitations
 
 - Maximum 10 media files per request
