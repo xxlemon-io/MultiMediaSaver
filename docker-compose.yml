@@ -12,8 +12,4 @@ services:
       PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: "1"
       NEXT_TELEMETRY_DISABLED: "1"
       TZ: "Asia/Shanghai"
-    volumes:
-      - downloads-data:/app/public/downloads
     restart: unless-stopped
-volumes:
-  downloads-data:
