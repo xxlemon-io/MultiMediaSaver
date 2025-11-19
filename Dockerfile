@@ -1,60 +1,31 @@
-ARG PLAYWRIGHT_VERSION=1.56.1
-
-# Base with browsers installed
-FROM mcr.microsoft.com/playwright:v${PLAYWRIGHT_VERSION}-jammy AS base
-ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
-
-# -----------------------------
-# Dependencies with cache layer
-# -----------------------------
-FROM base AS deps
-WORKDIR /app
-
-# Upgrade npm to support lockfileVersion 3
-RUN npm install -g npm@latest
-
-COPY package*.json ./
-# Cached if package.json unchanged
-RUN npm ci --omit=dev
-
-# -----------------------------
-# Builder
-# -----------------------------
-FROM base AS builder
-WORKDIR /app
-
-# Upgrade npm to support lockfileVersion 3
-RUN npm install -g npm@latest
-
-COPY --from=deps /app/node_modules ./node_modules
-COPY . .
-# Allow Next.js incremental build to cache
-ENV NODE_ENV=production
-RUN npm run build
-
-# -----------------------------
-# Runner (smallest possible)
-# -----------------------------
-FROM mcr.microsoft.com/playwright:v${PLAYWRIGHT_VERSION}-jammy AS runner
-WORKDIR /app
-
-ENV NODE_ENV=production \
-    PORT=3000 \
-    PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
-
-RUN addgroup --system --gid 1001 nodejs \
-    && adduser --system --uid 1001 nextjs
-
-# Copy only the built standalone server
-COPY --from=builder /app/public ./public
-COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
-COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
-
-# Create downloads directory
-RUN mkdir -p /app/public/downloads \
-    && chown -R nextjs:nodejs /app/public/downloads
-
-USER nextjs
-
-EXPOSE 3000
-CMD ["node", "server.js"]
+# ---- Base: Playwright runtime ----
+    ARG PLAYWRIGHT_VERSION=1.56.1
+    FROM mcr.microsoft.com/playwright:v${PLAYWRIGHT_VERSION}-jammy AS base
+    
+    ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
+    WORKDIR /app
+    
+    # ---- Install dependencies ----
+    COPY package.json package-lock.json ./
+    RUN npm install --production
+    
+    # ---- Build App ----
+    COPY . .
+    RUN npm run build
+    
+    # ---- Runtime ----
+    FROM mcr.microsoft.com/playwright:v${PLAYWRIGHT_VERSION}-jammy AS runner
+    
+    ENV NODE_ENV=production \
+        PORT=3000 \
+        PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
+    
+    WORKDIR /app
+    
+    COPY --from=base /app/node_modules ./node_modules
+    COPY --from=base /app/public ./public
+    COPY --from=base /app/.next/standalone ./
+    COPY --from=base /app/.next/static ./.next/static
+    
+    EXPOSE 3000
+    CMD ["node", "server.js"]
