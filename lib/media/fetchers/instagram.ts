@@ -1,5 +1,5 @@
 import { MediaAsset, MediaProvider } from "@/lib/media/types";
-import { scrapeInstagramMediaWithPlaywright } from "@/lib/parsers/instagramPlaywright";
+import { scrapeInstagram } from "@/lib/parsers/instagramPlaywright";
 import { saveMedia } from "@/lib/fs/saveMedia";
 import { randomUUID } from "crypto";
 
@@ -52,7 +52,7 @@ export const instagramProvider: MediaProvider = {
   },
 
   async fetchMedia(url: string): Promise<MediaAsset[]> {
-    const mediaList = await scrapeInstagramMediaWithPlaywright(url);
+    const mediaList = await scrapeInstagram(url);
 
     const assets: MediaAsset[] = await Promise.all(
       mediaList.map(async (media) => {

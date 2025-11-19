@@ -1,107 +1,195 @@
-import { chromium, Browser, Page, Response } from "playwright";
+import { chromium } from "playwright";
 
-export interface ScrapedMediaItem {
+export interface MediaItem {
   url: string;
   type: "image" | "video";
+  buffer?: Buffer;
 }
 
-const USER_AGENT =
-  "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36";
+const UA =
+  "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1";
 
-function unique<T extends { url: string }>(items: T[]): T[] {
-  const s = new Set<string>();
-  return items.filter((i) => !s.has(i.url) && s.add(i.url));
+// CDN 403 safe download
+async function download(context: any, url: string): Promise<Buffer> {
+  const res = await context.request.get(url, {
+    headers: {
+      "User-Agent": UA,
+      Referer: "https://www.instagram.com/",
+      Accept: "*/*",
+    },
+  });
+  if (!res.ok()) throw new Error("Download failed: " + res.status());
+  return Buffer.from(await res.body());
 }
 
-// 目前只做最基础的“看起来是大图”的判断；你后面可自行再加更严格过滤
-function isGoodImage(url: string): boolean {
-  if (!url.includes("cdninstagram.com")) return false;
-
-  // 可以先保留大部分，后续你在上层再过滤
-  if (url.includes("sprite") || url.includes("placeholder") || url.includes("blur")) {
-    return false;
-  }
-
-  return url.endsWith(".jpg") || url.includes(".jpg?");
-}
-
-export async function scrapeInstagramMediaWithPlaywright(
-  postUrl: string
-): Promise<ScrapedMediaItem[]> {
-  let browser: Browser | null = null;
+export async function scrapeInstagram(url: string): Promise<MediaItem[]> {
+  const browser = await chromium.launch({ headless: true });
+  const context = await browser.newContext({
+    userAgent: UA,
+    viewport: { width: 414, height: 896 },
+    isMobile: true,
+    deviceScaleFactor: 3,
+  });
 
   try {
-    browser = await chromium.launch({
-      headless: true,
-      args: ["--no-sandbox"],
-    });
+    const page = await context.newPage();
+    await page.goto(url, { waitUntil: "networkidle" });
+    await page.waitForTimeout(2500);
 
-    const context = await browser.newContext({
-      userAgent: USER_AGENT,
-      viewport: { width: 1280, height: 720 },
-    });
+    const collected = new Set<string>();
 
-    const page: Page = await context.newPage();
-
-    const images = new Set<string>();
-    const videos = new Set<string>();
-
-    const startTime = Date.now();
-    const ACTIVE_WINDOW_MS = 8000; // 放宽时间窗口，尽可能抓全（你后面自己过滤）
-
-    // 监听所有响应
-    page.on("response", (res: Response) => {
-      const now = Date.now();
-      const elapsed = now - startTime;
-
-      const url = res.url();
-
-      // 如果你想完全不过滤时间，可以去掉这个判断
-      if (elapsed > ACTIVE_WINDOW_MS) return;
-
-      // 视频
-      if (
-        url.includes("cdninstagram.com") &&
-        (url.endsWith(".mp4") || url.includes(".mp4?"))
-      ) {
-        videos.add(url);
-        return;
-      }
-
-      // 图片
-      if (isGoodImage(url)) {
-        images.add(url);
-      }
-    });
-
-    await page.goto(postUrl, {
-      waitUntil: "networkidle",
-      timeout: 45000,
-    });
-
-    // 尝试关掉弹窗
-    await page.keyboard.press("Escape").catch(() => {});
-    await page.mouse.click(10, 10).catch(() => {});
-
-    // 等待一段时间让懒加载/轮播的资源请求都发出来
-    await page.waitForTimeout(5000);
-
-    const results: ScrapedMediaItem[] = [];
-
-    images.forEach((u) => results.push({ url: u, type: "image" }));
-    videos.forEach((u) => results.push({ url: u, type: "video" }));
-
-    const final = unique(results);
-
-    if (final.length === 0) {
-      throw new Error("No media found.");
+    async function extractNow() {
+      const urls: string[] = await page.evaluate(() => {
+        const result: string[] = [];
+    
+        // 检查是否是 IG 真实媒体（过滤所有 icon/头像/UI）
+        const isRealMedia = (url: string, el?: HTMLElement): boolean => {
+          url = url.toLowerCase();
+    
+          if (!url.includes("cdninstagram")) return false;
+    
+          // 过滤头像 / UI icon 小图
+          const smallSizes = [
+            "s34x34", "34x34",
+            "s40x40", "40x40",
+            "s64x64", "64x64",
+            "s96x96", "96x96",
+            "s150x150", "150x150",
+            "s240x240", "240x240",
+            "s320x320", "320x320",
+            "s480x480", "480x480"
+          ];
+          for (const s of smallSizes) {
+            if (url.includes(s)) return false;
+          }
+    
+          // 过滤文件名明显是 UI 图标
+          const badWords = ["sprite", "mask", "icon", "profile", "avatar", "badge", "fallback"];
+          if (badWords.some((w) => url.includes(w))) return false;
+    
+          // 过滤 png/svg
+          if (url.endsWith(".png") || url.endsWith(".svg")) return false;
+    
+          // 必须属于 carousel 区域
+          if (el) {
+            const article = el.closest("article");
+            if (!article) return false;
+    
+            const pres = article.querySelector("div[role='presentation']");
+            if (!pres) return false;
+            if (!pres.contains(el)) return false; // 不在 carousel 主体区
+          }
+    
+          return true;
+        };
+    
+        document.querySelectorAll("img").forEach((img) => {
+          if (isRealMedia(img.src, img)) result.push(img.src);
+    
+          if (img.srcset) {
+            img.srcset.split(",").forEach((s) => {
+              const u = s.trim().split(" ")[0];
+              if (isRealMedia(u, img)) result.push(u);
+            });
+          }
+        });
+    
+        document.querySelectorAll("video").forEach((v) => {
+          if (isRealMedia(v.src, v)) result.push(v.src);
+          const s = v.querySelector("source");
+          if (s && isRealMedia(s.src, v)) result.push(s.src);
+        });
+    
+        return Array.from(new Set(result));
+      });
+    
+      urls.forEach((u) => collected.add(u));
     }
 
-    // 不再做 max 10 限制，全部交给上层处理
-    return final;
+    // 1. 抓取当前可见的
+    await extractNow();
+
+    // 2. 循环模拟手机滑动
+    const swipeJS = `
+    (() => {
+      const el = document.querySelector("article div[role='presentation']");
+      if (!el) return false;
+    
+      const rect = el.getBoundingClientRect();
+      const startX = rect.right - 30;
+      const startY = rect.top + rect.height / 2;
+      const endX = rect.left + 30;
+    
+      const makeTouch = (x, y) =>
+        new Touch({
+          identifier: Date.now(),
+          target: el,
+          clientX: x,
+          clientY: y,
+          radiusX: 2,
+          radiusY: 2,
+          rotationAngle: 0,
+          force: 1,
+        });
+    
+      el.dispatchEvent(
+        new TouchEvent("touchstart", {
+          touches: [makeTouch(startX, startY)],
+          bubbles: true,
+          cancelable: true,
+        })
+      );
+    
+      el.dispatchEvent(
+        new TouchEvent("touchmove", {
+          touches: [makeTouch((startX + endX) / 2, startY)],
+          bubbles: true,
+          cancelable: true,
+        })
+      );
+    
+      el.dispatchEvent(
+        new TouchEvent("touchend", {
+          changedTouches: [makeTouch(endX, startY)],
+          bubbles: true,
+          cancelable: true,
+        })
+      );
+    
+      return true;
+    })();
+    `;
+
+    for (let i = 0; i < 6; i++) {
+      await page.evaluate(swipeJS);
+      await page.waitForTimeout(1200);
+      await extractNow();
+    }
+
+    if (collected.size === 0)
+      throw new Error("No media found even after swipe.");
+
+    const items = [...collected].map((u) => ({
+      url: u,
+      type: u.includes(".mp4") ? "video" : "image",
+    }));
+
+    // 3. 下载所有媒体（避开 403）
+    // 使用 Promise.all 并显式扩展每个 item 类型，确保包含 buffer 属性
+    const itemsWithBuffers = await Promise.all(
+      items.map(async (item) => ({
+        ...item,
+        buffer: await download(context, item.url),
+      }))
+    );
+    // 用 itemsWithBuffers 替代原 items
+    items.splice(0, items.length, ...itemsWithBuffers);
+    // Also, ensure correct typing for returned value
+
+    return items as MediaItem[];
   } finally {
-    try {
-      await browser?.close();
-    } catch {}
+    if (browser) {
+      await browser.close();
+    }
   }
 }
