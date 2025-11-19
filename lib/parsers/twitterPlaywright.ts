@@ -72,6 +72,17 @@ export async function scrapeTwitterMediaWithPlaywright(
 
     page = await context.newPage();
 
+    // Collect video URLs from network requests (set up before navigation)
+    const videoUrlsFromNetwork: string[] = [];
+    page.on('response', (response) => {
+      const url = response.url();
+      if ((url.includes('video.twimg.com') || url.includes('video.pscp.tv') || url.endsWith('.mp4')) && 
+          !url.includes('thumbnail') && 
+          !url.includes('preview')) {
+        videoUrlsFromNetwork.push(url);
+      }
+    });
+
     const controller = new AbortController();
     const scrapeTimer = setTimeout(() => controller.abort(), SCRAPE_TIMEOUT);
 
@@ -96,6 +107,48 @@ export async function scrapeTwitterMediaWithPlaywright(
 
     await page.waitForTimeout(5000);
 
+    // Check if page shows an error message (Twitter anti-bot protection)
+    const hasError = await page.evaluate(() => {
+      const bodyText = document.body.innerText || "";
+      return bodyText.includes("Something went wrong") || 
+             bodyText.includes("Try again") ||
+             document.querySelector('[data-testid="error"]') !== null;
+    });
+
+    if (hasError) {
+      throw new Error(
+        "Twitter returned an error page. This may be due to anti-bot protection. The tweet may be private, deleted, or Twitter is blocking automated access."
+      );
+    }
+
+    // Check for videoPlayer element (indicates video tweet)
+    const hasVideoPlayer = await page.evaluate(() => {
+      return document.querySelector('[data-testid="videoPlayer"]') !== null;
+    });
+
+    if (hasVideoPlayer) {
+      // Scroll to video player to trigger loading
+      await page.evaluate(() => {
+        const videoPlayer = document.querySelector('[data-testid="videoPlayer"]');
+        if (videoPlayer) {
+          videoPlayer.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+      });
+      await page.waitForTimeout(3000);
+    }
+
+    // Try to wait for video elements to load (they may be lazy-loaded)
+    try {
+      await page.waitForSelector("video, [data-testid='video']", { timeout: 10000 }).catch(() => {
+        // Video might not be present or might load differently
+      });
+    } catch (e) {
+      // Continue even if video selector doesn't appear
+    }
+
+    // Additional wait for dynamic content
+    await page.waitForTimeout(2000);
+
     const media = await page.evaluate(() => {
       const items: Array<{ url: string; type: MediaType }> = [];
 
@@ -107,7 +160,35 @@ export async function scrapeTwitterMediaWithPlaywright(
 
       imageNodes.forEach((img) => {
         if (img.src) {
-          items.push({ url: img.src, type: "image" });
+          // Check if this is a video thumbnail
+          if (img.src.includes("ext_tw_video_thumb")) {
+            // This is a video thumbnail, try to find the actual video URL
+            // Video thumbnails often have a corresponding video element nearby
+            const parent = img.closest("article, div[data-testid='tweet']");
+            if (parent) {
+              const videoInParent = parent.querySelector("video");
+              if (videoInParent && videoInParent.src) {
+                items.push({ url: videoInParent.src, type: "video" });
+              }
+            }
+            // Also keep the thumbnail as image for fallback
+            items.push({ url: img.src, type: "image" });
+          } else {
+            // Regular image
+            items.push({ url: img.src, type: "image" });
+          }
+        }
+      });
+
+      // Check for video elements with src attribute
+      const videoElements = Array.from(document.querySelectorAll<HTMLVideoElement>("video"));
+      videoElements.forEach((video) => {
+        if (video.src) {
+          items.push({ url: video.src, type: "video" });
+        }
+        // Also check currentSrc which might be different
+        if (video.currentSrc && video.currentSrc !== video.src) {
+          items.push({ url: video.currentSrc, type: "video" });
         }
       });
 
@@ -131,10 +212,35 @@ export async function scrapeTwitterMediaWithPlaywright(
         }
       });
 
+      // Check for video URLs in data attributes or other elements
+      // Twitter sometimes embeds video URLs in data attributes
+      const allElements = Array.from(document.querySelectorAll("*"));
+      allElements.forEach((el) => {
+        Array.from(el.attributes).forEach((attr) => {
+          const value = attr.value;
+          if (
+            value &&
+            typeof value === "string" &&
+            (value.includes("video.twimg.com") || value.includes("video.pscp.tv"))
+          ) {
+            // Extract URL from attribute value
+            const urlMatch = value.match(/https?:\/\/[^\s"']+/);
+            if (urlMatch) {
+              items.push({ url: urlMatch[0], type: "video" });
+            }
+          }
+        });
+      });
+
       return items;
     });
 
     clearTimeout(scrapeTimer);
+
+    // Add video URLs found from network requests
+    videoUrlsFromNetwork.forEach((url) => {
+      media.push({ url, type: "video" });
+    });
 
     const normalized = media.map((item) => {
       if (item.type === "image") {
