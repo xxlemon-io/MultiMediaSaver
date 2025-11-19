@@ -101,7 +101,7 @@ export default function Home() {
             Download images and videos from Twitter/X and Instagram
           </p>
           <p className="text-sm text-gray-500 dark:text-gray-500 mt-1">
-            No official API required • Instagram support coming soon
+            No official API required • Instagram supported!
           </p>
         </div>
 
