@@ -6,6 +6,8 @@ A responsive web application for downloading images and videos from Twitter/X an
 
 - Download images and videos from Twitter/X links
 - Instagram support (coming soon)
+- Automatic cleanup removes previous downloads when parsing a new link
+- Download every fetched asset at once as a ZIP archive
 - Responsive design for mobile and desktop
 - No official API required - uses a self-hosted Playwright scraper
 
@@ -89,9 +91,9 @@ INSTAGRAM_PARSER_KEY=optional-api-key
 
 The backend endpoint used by the UI can also be called programmatically.
 
-### Endpoint
+### Endpoints
 
-`POST /api/media`
+#### `POST /api/media`
 
 ### Request Body
 
@@ -101,7 +103,7 @@ The backend endpoint used by the UI can also be called programmatically.
 }
 ```
 
-### Success Response
+##### Success Response
 
 ```json
 {
@@ -123,7 +125,7 @@ The backend endpoint used by the UI can also be called programmatically.
 - `downloadUrl` is relative; prepend your host when sharing externally.
 - `type` is `image` or `video`.
 
-### Error Response
+##### Error Response
 
 ```json
 {
@@ -134,7 +136,42 @@ The backend endpoint used by the UI can also be called programmatically.
 
 The HTTP status conveys the reason (400 invalid URL, 404 no media, 500/504 scraping errors, 501 Instagram placeholder).
 
-### CLI Example
+##### CLI Example
+#### `POST /api/download-all`
+
+Bundle previously fetched assets (from `/api/media`) into a single ZIP file stored under `public/downloads`.
+
+##### Request Body
+
+```json
+{
+  "assets": [
+    {
+      "downloadUrl": "/downloads/1711100000000-abcd1234.jpg",
+      "filename": "1711100000000-abcd1234.jpg"
+    }
+  ]
+}
+```
+
+##### Success Response
+
+```json
+{
+  "ok": true,
+  "zipUrl": "/downloads/1711105000000-zip12345.zip"
+}
+```
+
+##### Error Response
+
+```json
+{
+  "ok": false,
+  "message": "Failed to create download archive"
+}
+```
+
 
 ```bash
 curl -X POST http://localhost:3000/api/media \

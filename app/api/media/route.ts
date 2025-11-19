@@ -4,6 +4,7 @@ import { twitterProvider } from "@/lib/media/fetchers/twitter";
 import { instagramProvider } from "@/lib/media/fetchers/instagram";
 import { ApiResponse } from "@/lib/media/types";
 import { cleanUrl } from "@/lib/utils/urlCleaner";
+import { resetDownloadsDir } from "@/lib/fs/resetDownloads";
 
 export async function POST(request: NextRequest) {
   try {
@@ -37,6 +38,8 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       );
     }
+
+    await resetDownloadsDir();
 
     let assets;
     try {

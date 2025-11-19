@@ -9,6 +9,8 @@ export default function Home() {
   const [status, setStatus] = useState<"idle" | "loading" | "success" | "error">("idle");
   const [assets, setAssets] = useState<MediaAsset[]>([]);
   const [errorMessage, setErrorMessage] = useState("");
+  const [downloadAllLoading, setDownloadAllLoading] = useState(false);
+  const [downloadAllError, setDownloadAllError] = useState("");
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -16,6 +18,7 @@ export default function Home() {
 
     setStatus("loading");
     setErrorMessage("");
+    setDownloadAllError("");
     setAssets([]);
 
     try {
@@ -43,6 +46,49 @@ export default function Home() {
         setErrorMessage("Network error. Please check your connection and try again.");
       }
       setStatus("error");
+    }
+  };
+
+  const handleDownloadAll = async () => {
+    if (!assets.length || downloadAllLoading) {
+      return;
+    }
+
+    setDownloadAllLoading(true);
+    setDownloadAllError("");
+
+    try {
+      const response = await fetch("/api/download-all", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          assets: assets.map(({ downloadUrl, filename }) => ({
+            downloadUrl,
+            filename,
+          })),
+        }),
+      });
+
+      const data = await response.json();
+
+      if (response.ok && data.zipUrl) {
+        const link = document.createElement("a");
+        link.href = data.zipUrl;
+        link.download = data.zipUrl.split("/").pop() || "media.zip";
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+      } else {
+        setDownloadAllError(
+          data.message || "Failed to prepare the archive. Please try again."
+        );
+      }
+    } catch (error) {
+      setDownloadAllError(
+        error instanceof Error ? error.message : "Network error. Please try again."
+      );
+    } finally {
+      setDownloadAllLoading(false);
     }
   };
 
@@ -100,13 +146,20 @@ export default function Home() {
               <h2 className="text-xl font-semibold">
                 Found {assets.length} media file{assets.length > 1 ? "s" : ""}
               </h2>
-              <button
-                className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
-                disabled
-                title="Download all feature coming soon"
-              >
-                Download All
-              </button>
+              <div className="text-right">
+                <button
+                  onClick={handleDownloadAll}
+                  className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                  disabled={downloadAllLoading}
+                >
+                  {downloadAllLoading ? "Preparing..." : "Download All"}
+                </button>
+                {downloadAllError && (
+                  <p className="text-xs text-red-600 dark:text-red-400 mt-2">
+                    {downloadAllError}
+                  </p>
+                )}
+              </div>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {assets.map((asset) => (
