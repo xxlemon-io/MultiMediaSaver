@@ -4,6 +4,9 @@ import "./globals.css";
 export const metadata: Metadata = {
   title: "MultiMediaSaver - Media Downloader",
   description: "Download images and videos from Twitter/X and Instagram",
+  icons: {
+    icon: "/icon.svg",
+  },
 };
 
 export default function RootLayout({
