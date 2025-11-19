@@ -112,18 +112,19 @@ export async function scrapeInstagram(url: string): Promise<MediaItem[]> {
     // 2. 循环模拟手机滑动
     const swipeJS = `
     (() => {
-      const el = document.querySelector("article div[role='presentation']");
-      if (!el) return false;
+      const layer = document.querySelector("article div[role='presentation']");
+      if (!layer) return false;
     
-      const rect = el.getBoundingClientRect();
-      const startX = rect.right - 30;
-      const startY = rect.top + rect.height / 2;
-      const endX = rect.left + 30;
+      const rect = layer.getBoundingClientRect();
     
-      const makeTouch = (x, y) =>
+      const startX = rect.right - rect.width * 0.15;
+      const startY = rect.top + rect.height * 0.5;
+      const endX   = rect.left + rect.width * 0.15;
+    
+      const mkTouch = (x, y) =>
         new Touch({
           identifier: Date.now(),
-          target: el,
+          target: layer,
           clientX: x,
           clientY: y,
           radiusX: 2,
@@ -132,29 +133,26 @@ export async function scrapeInstagram(url: string): Promise<MediaItem[]> {
           force: 1,
         });
     
-      el.dispatchEvent(
-        new TouchEvent("touchstart", {
-          touches: [makeTouch(startX, startY)],
-          bubbles: true,
-          cancelable: true,
-        })
-      );
+      // touchstart
+      layer.dispatchEvent(new TouchEvent("touchstart", {
+        touches: [mkTouch(startX, startY)],
+        bubbles: true,
+        cancelable: true,
+      }));
     
-      el.dispatchEvent(
-        new TouchEvent("touchmove", {
-          touches: [makeTouch((startX + endX) / 2, startY)],
-          bubbles: true,
-          cancelable: true,
-        })
-      );
+      // touchmove (midpoint)
+      layer.dispatchEvent(new TouchEvent("touchmove", {
+        touches: [mkTouch((startX + endX)/2, startY)],
+        bubbles: true,
+        cancelable: true,
+      }));
     
-      el.dispatchEvent(
-        new TouchEvent("touchend", {
-          changedTouches: [makeTouch(endX, startY)],
-          bubbles: true,
-          cancelable: true,
-        })
-      );
+      // touchend
+      layer.dispatchEvent(new TouchEvent("touchend", {
+        changedTouches: [mkTouch(endX, startY)],
+        bubbles: true,
+        cancelable: true,
+      }));
     
       return true;
     })();
