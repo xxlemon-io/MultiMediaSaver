@@ -3,7 +3,6 @@ import { scrapeInstagramMediaWithPlaywright } from "@/lib/parsers/instagramPlayw
 import { saveMedia } from "@/lib/fs/saveMedia";
 import { randomUUID } from "crypto";
 
-const MAX_MEDIA_COUNT = 10;
 const DOWNLOAD_TIMEOUT = 60000; // 60 seconds
 
 async function downloadMedia(
@@ -54,12 +53,6 @@ export const instagramProvider: MediaProvider = {
 
   async fetchMedia(url: string): Promise<MediaAsset[]> {
     const mediaList = await scrapeInstagramMediaWithPlaywright(url);
-
-    if (mediaList.length > MAX_MEDIA_COUNT) {
-      throw new Error(
-        `Too many media files (max ${MAX_MEDIA_COUNT}). Found ${mediaList.length}`
-      );
-    }
 
     const assets: MediaAsset[] = await Promise.all(
       mediaList.map(async (media) => {
