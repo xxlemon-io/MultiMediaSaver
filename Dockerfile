@@ -43,5 +43,5 @@
     # 复制静态资源
     COPY --from=builder /app/.next/static ./.next/static
     
-    EXPOSE 3000
+    EXPOSE 3030
     CMD ["node", "server.js"]
