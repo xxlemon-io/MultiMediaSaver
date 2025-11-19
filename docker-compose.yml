@@ -3,22 +3,17 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-
     ports:
-      - "3030:3000"
-
+      - "3030:3000"  # <--- 左边 3030 是宿主机端口，右边 3000 是容器端口
     environment:
       NODE_ENV: production
-      PORT: 3030
+      PORT: 3000     # <--- 【重要】这里必须是 3000，配合上面的右侧端口
       PLAYWRIGHT_BROWSERS_PATH: /ms-playwright
       PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: "1"
       NEXT_TELEMETRY_DISABLED: "1"
       TZ: "Asia/Shanghai"
-
     volumes:
       - downloads-data:/app/public/downloads
-
     restart: unless-stopped
-
 volumes:
   downloads-data:
