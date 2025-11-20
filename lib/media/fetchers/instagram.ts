@@ -1,5 +1,6 @@
 import { MediaAsset, MediaProvider } from "@/lib/media/types";
 import { scrapeInstagram } from "@/lib/parsers/instagramPlaywright";
+import { scrapeInstagramReel } from "@/lib/parsers/instagramReelPlaywright";
 import { saveMedia } from "@/lib/fs/saveMedia";
 import { randomUUID } from "crypto";
 
@@ -52,7 +53,13 @@ export const instagramProvider: MediaProvider = {
   },
 
   async fetchMedia(url: string): Promise<MediaAsset[]> {
-    const mediaList = await scrapeInstagram(url);
+    // 检测是否是 Reel 链接
+    const isReel = url.toLowerCase().includes("/reel/");
+    
+    // 根据链接类型选择不同的解析器
+    const mediaList = isReel 
+      ? await scrapeInstagramReel(url)
+      : await scrapeInstagram(url);
 
     const assets: MediaAsset[] = await Promise.all(
       mediaList.map(async (media) => {
