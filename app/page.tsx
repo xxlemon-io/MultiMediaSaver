@@ -179,11 +179,44 @@ export default function Home() {
                       loading="lazy"
                     />
                   ) : (
-                    <video
-                      src={asset.downloadUrl}
-                      controls
-                      className="w-full h-48 object-cover"
-                    />
+                    <div className="relative w-full h-48 group">
+                      <video
+                        src={asset.downloadUrl}
+                        controls
+                        className="w-full h-48 object-cover"
+                        playsInline
+                        webkit-playsinline="true"
+                      />
+                      {/* Download button overlay for easy mobile access */}
+                      <a
+                        href={asset.downloadUrl}
+                        download={asset.filename}
+                        className="absolute top-2 right-2 bg-black/70 hover:bg-black/90 text-white p-2 rounded-full transition-colors z-20"
+                        style={{
+                          WebkitTouchCallout: "default",
+                        }}
+                        onClick={(e) => {
+                          // Allow the download to proceed
+                          e.stopPropagation();
+                        }}
+                        aria-label={`Download video ${asset.filename}`}
+                      >
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          className="h-5 w-5"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                          stroke="currentColor"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
+                          />
+                        </svg>
+                      </a>
+                    </div>
                   )}
                   <div className="p-3">
                     <p className="text-sm text-gray-600 dark:text-gray-400 truncate mb-2">
