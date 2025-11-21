@@ -98,7 +98,7 @@ describe('saveMedia', () => {
       // Verify filename format: timestamp-uuid.ext
       expect(result.filename).toMatch(/^\d+-12345678\.jpg$/);
       expect(result.filename).toContain(mockTimestamp.toString());
-      expect(result.publicPath).toBe(`/api/downloads/${result.filename}`);
+      expect(result.publicPath).toMatch(/^\/api\/downloads\/.+/);
     });
 
     it('should generate unique filenames for multiple calls', async () => {
@@ -125,7 +125,7 @@ describe('saveMedia', () => {
       // mkdir should be called with recursive: true
       expect(mockedMkdir).toHaveBeenCalled();
       const mkdirCall = mockedMkdir.mock.calls[0];
-      // Check that mkdir was called with a path ending in 'tmp/downloads' and recursive option
+      // Check that mkdir was called with a path containing 'tmp/downloads' and recursive option
       expect(mkdirCall[0]).toContain('tmp/downloads');
       expect(mkdirCall[1]).toEqual({ recursive: true });
     });
@@ -205,6 +205,25 @@ describe('saveMedia', () => {
       expect(result).toHaveProperty('filename');
       expect(result.publicPath).toMatch(/^\/api\/downloads\/.+/);
       expect(result.filename).toMatch(/^\d+-12345678\.jpg$/);
+    });
+
+    it('should include sessionId in publicPath when provided', async () => {
+      const buffer = Buffer.from('fake image data');
+      const sessionId = 'test-session-id';
+
+      const result = await saveMedia(buffer, 'image/jpeg', undefined, sessionId);
+
+      expect(result.publicPath).toContain(`session=${sessionId}`);
+      expect(result.publicPath).toMatch(/^\/api\/downloads\/.+\?session=.+/);
+    });
+
+    it('should not include sessionId in publicPath when not provided', async () => {
+      const buffer = Buffer.from('fake image data');
+
+      const result = await saveMedia(buffer, 'image/jpeg');
+
+      expect(result.publicPath).not.toContain('session=');
+      expect(result.publicPath).toMatch(/^\/api\/downloads\/[^?]+$/);
     });
   });
 });

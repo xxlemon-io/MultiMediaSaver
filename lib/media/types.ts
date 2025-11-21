@@ -12,12 +12,13 @@ export interface MediaAsset {
 
 export interface MediaProvider {
   canHandle(url: string): boolean;
-  fetchMedia(url: string): Promise<MediaAsset[]>;
+  fetchMedia(url: string, sessionId: string): Promise<MediaAsset[]>;
 }
 
 export interface ApiResponse {
   ok: boolean;
   assets?: MediaAsset[];
   message?: string;
+  sessionId?: string;
 }
 

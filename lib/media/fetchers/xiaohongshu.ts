@@ -84,7 +84,7 @@ export const xiaohongshuProvider: MediaProvider = {
     return normalizedUrl.includes("xiaohongshu.com");
   },
 
-  async fetchMedia(url: string): Promise<MediaAsset[]> {
+  async fetchMedia(url: string, sessionId: string): Promise<MediaAsset[]> {
     const mediaList = await scrapeXiaohongshu(url);
 
     const assets: MediaAsset[] = await Promise.all(
@@ -106,7 +106,8 @@ export const xiaohongshuProvider: MediaProvider = {
           const { publicPath, filename } = await saveMedia(
             buffer,
             contentType,
-            media.url
+            media.url,
+            sessionId
           );
 
           return {

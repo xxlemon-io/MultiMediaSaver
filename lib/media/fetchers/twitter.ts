@@ -5,6 +5,53 @@ import { randomUUID } from "crypto";
 
 const MAX_MEDIA_COUNT = 10;
 const DOWNLOAD_TIMEOUT = 60000; // 60 seconds
+const MAX_RETRIES = 3;
+const INITIAL_RETRY_DELAY = 2000; // 2 seconds
+
+// Helper function to sleep with random jitter
+function sleep(ms: number): Promise<void> {
+  // Add random jitter (±20%) to avoid synchronized retries
+  const jitter = ms * 0.2 * (Math.random() * 2 - 1);
+  return new Promise((resolve) => setTimeout(resolve, ms + jitter));
+}
+
+// Retry function with exponential backoff
+async function retryWithBackoff<T>(
+  fn: () => Promise<T>,
+  maxRetries: number = MAX_RETRIES,
+  initialDelay: number = INITIAL_RETRY_DELAY
+): Promise<T> {
+  let lastError: Error | unknown;
+  
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      return await fn();
+    } catch (error) {
+      lastError = error;
+      
+      // Check if this is a retryable error
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      const isRetryable = 
+        errorMessage.includes("anti-bot protection") ||
+        errorMessage.includes("error page") ||
+        errorMessage.includes("Something went wrong") ||
+        errorMessage.includes("Try again") ||
+        errorMessage.includes("blocking automated access");
+      
+      // Don't retry if it's not a retryable error or we've exhausted retries
+      if (!isRetryable || attempt === maxRetries) {
+        throw error;
+      }
+      
+      // Calculate delay with exponential backoff
+      const delay = initialDelay * Math.pow(2, attempt);
+      console.log(`[Twitter] Retry attempt ${attempt + 1}/${maxRetries} after ${delay}ms delay`);
+      await sleep(delay);
+    }
+  }
+  
+  throw lastError;
+}
 
 async function downloadMedia(
   url: string,
@@ -55,8 +102,11 @@ export const twitterProvider: MediaProvider = {
     );
   },
 
-  async fetchMedia(url: string): Promise<MediaAsset[]> {
-    const mediaList = await scrapeTwitterMediaWithPlaywright(url);
+  async fetchMedia(url: string, sessionId: string): Promise<MediaAsset[]> {
+    // Retry scraping with exponential backoff for transient errors
+    const mediaList = await retryWithBackoff(() => 
+      scrapeTwitterMediaWithPlaywright(url)
+    );
 
     if (mediaList.length > MAX_MEDIA_COUNT) {
       throw new Error(
@@ -75,7 +125,8 @@ export const twitterProvider: MediaProvider = {
           const { publicPath, filename } = await saveMedia(
             buffer,
             contentType,
-            media.url
+            media.url,
+            sessionId
           );
 
           return {

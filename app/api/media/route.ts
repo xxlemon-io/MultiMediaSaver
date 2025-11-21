@@ -6,7 +6,9 @@ import { xiaohongshuProvider } from "@/lib/media/fetchers/xiaohongshu";
 import { ApiResponse } from "@/lib/media/types";
 import { cleanUrl } from "@/lib/utils/urlCleaner";
 import { processXhsInput } from "@/lib/utils/xhsLinkResolver";
-import { resetDownloadsDir } from "@/lib/fs/resetDownloads";
+import { resetSessionDownloadsDir } from "@/lib/fs/resetDownloads";
+import { cleanupExpiredSessions } from "@/lib/fs/cleanupSessions";
+import { randomUUID } from "crypto";
 
 export async function POST(request: NextRequest) {
   try {
@@ -58,17 +60,27 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    await resetDownloadsDir();
+    // Generate session ID for this request
+    const sessionId = randomUUID();
+    console.log(`[API] Generated session ID: ${sessionId}`);
+
+    // Asynchronously cleanup expired sessions (don't block the request)
+    cleanupExpiredSessions().catch((error) => {
+      console.error("[API] Cleanup error (non-blocking):", error);
+    });
+
+    // Reset session-specific downloads directory
+    await resetSessionDownloadsDir(sessionId);
 
     let assets;
     try {
       console.log(`[API] Fetching media for ${provider}...`);
       if (provider === "twitter") {
-        assets = await twitterProvider.fetchMedia(processedUrl);
+        assets = await twitterProvider.fetchMedia(processedUrl, sessionId);
       } else if (provider === "instagram") {
-        assets = await instagramProvider.fetchMedia(processedUrl);
+        assets = await instagramProvider.fetchMedia(processedUrl, sessionId);
       } else if (provider === "xiaohongshu") {
-        assets = await xiaohongshuProvider.fetchMedia(processedUrl);
+        assets = await xiaohongshuProvider.fetchMedia(processedUrl, sessionId);
       } else {
         throw new Error("Unsupported provider");
       }
@@ -116,6 +128,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json<ApiResponse>({
       ok: true,
       assets,
+      sessionId,
     });
   } catch (error) {
     return NextResponse.json<ApiResponse>(

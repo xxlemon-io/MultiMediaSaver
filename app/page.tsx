@@ -10,6 +10,7 @@ export default function Home() {
   const [errorMessage, setErrorMessage] = useState("");
   const [downloadAllLoading, setDownloadAllLoading] = useState(false);
   const [downloadAllError, setDownloadAllError] = useState("");
+  const [sessionId, setSessionId] = useState<string | null>(null);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -31,12 +32,14 @@ export default function Home() {
 
       if (data.ok && data.assets) {
         setAssets(data.assets);
+        setSessionId(data.sessionId || null);
         setStatus("success");
       } else {
         setErrorMessage(
           data.message || "An error occurred. Please try again."
         );
         setStatus("error");
+        setSessionId(null);
       }
     } catch (error) {
       if (error instanceof Error && error.name === "AbortError") {
@@ -65,6 +68,7 @@ export default function Home() {
             downloadUrl,
             filename,
           })),
+          sessionId: sessionId,
         }),
       });
 

@@ -105,15 +105,37 @@ export async function scrapeTwitterMediaWithPlaywright(
       throw error;
     }
 
-    await page.waitForTimeout(5000);
+    // Wait for page to load with some random delay to simulate human behavior
+    const baseWaitTime = 5000;
+    const randomDelay = Math.random() * 2000; // 0-2 seconds random delay
+    await page.waitForTimeout(baseWaitTime + randomDelay);
 
     // Check if page shows an error message (Twitter anti-bot protection)
-    const hasError = await page.evaluate(() => {
-      const bodyText = document.body.innerText || "";
-      return bodyText.includes("Something went wrong") || 
-             bodyText.includes("Try again") ||
-             document.querySelector('[data-testid="error"]') !== null;
-    });
+    // Try checking multiple times as sometimes the error appears after initial load
+    let hasError = false;
+    for (let checkAttempt = 0; checkAttempt < 2; checkAttempt++) {
+      hasError = await page.evaluate(() => {
+        const bodyText = document.body.innerText || "";
+        const title = document.title || "";
+        return (
+          bodyText.includes("Something went wrong") ||
+          bodyText.includes("Try again") ||
+          bodyText.includes("Something went wrong. Try reloading") ||
+          bodyText.includes("Rate limit exceeded") ||
+          title.includes("Something went wrong") ||
+          document.querySelector('[data-testid="error"]') !== null ||
+          document.querySelector('[data-testid="errorPage"]') !== null ||
+          document.querySelector('div[role="alert"]') !== null
+        );
+      });
+      
+      if (hasError) break;
+      
+      // Wait a bit more before second check
+      if (checkAttempt === 0) {
+        await page.waitForTimeout(2000);
+      }
+    }
 
     if (hasError) {
       throw new Error(

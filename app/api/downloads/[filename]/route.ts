@@ -2,7 +2,14 @@ import { NextRequest, NextResponse } from "next/server";
 import { readFile, access } from "fs/promises";
 import { join } from "path";
 
-const DOWNLOADS_DIR = join(process.cwd(), "tmp", "downloads");
+const BASE_DOWNLOADS_DIR = join(process.cwd(), "tmp", "downloads");
+
+function getSessionDir(sessionId?: string): string {
+  if (sessionId) {
+    return join(BASE_DOWNLOADS_DIR, sessionId);
+  }
+  return BASE_DOWNLOADS_DIR;
+}
 
 export async function GET(
   request: NextRequest,
@@ -26,7 +33,19 @@ export async function GET(
       );
     }
 
-    const filePath = join(DOWNLOADS_DIR, filename);
+    // Get sessionId from query parameter
+    const sessionId = request.nextUrl.searchParams.get("session") || undefined;
+    
+    // Security: Validate sessionId format (should be UUID)
+    if (sessionId && !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(sessionId)) {
+      return NextResponse.json(
+        { error: "Invalid session ID" },
+        { status: 400 }
+      );
+    }
+
+    const downloadsDir = getSessionDir(sessionId);
+    const filePath = join(downloadsDir, filename);
 
     // Check if file exists
     try {

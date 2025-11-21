@@ -52,7 +52,7 @@ export const instagramProvider: MediaProvider = {
     return normalizedUrl.includes("instagram.com");
   },
 
-  async fetchMedia(url: string): Promise<MediaAsset[]> {
+  async fetchMedia(url: string, sessionId: string): Promise<MediaAsset[]> {
     // 检测是否是 Reel 链接
     const isReel = url.toLowerCase().includes("/reel/");
     
@@ -72,7 +72,8 @@ export const instagramProvider: MediaProvider = {
           const { publicPath, filename } = await saveMedia(
             buffer,
             contentType,
-            media.url
+            media.url,
+            sessionId
           );
 
           return {

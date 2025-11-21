@@ -5,7 +5,14 @@ import { join, basename } from "path";
 import { randomUUID } from "crypto";
 import archiver from "archiver";
 
-const DOWNLOADS_DIR = join(process.cwd(), "tmp", "downloads");
+const BASE_DOWNLOADS_DIR = join(process.cwd(), "tmp", "downloads");
+
+function getSessionDir(sessionId?: string): string {
+  if (sessionId) {
+    return join(BASE_DOWNLOADS_DIR, sessionId);
+  }
+  return BASE_DOWNLOADS_DIR;
+}
 
 class DownloadAllError extends Error {
   status: number;
@@ -30,22 +37,35 @@ interface DownloadAllResponse {
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-async function resolveAssetPath(asset: DownloadAssetInput) {
+async function resolveAssetPath(asset: DownloadAssetInput, sessionId?: string) {
   if (!asset.downloadUrl || typeof asset.downloadUrl !== "string") {
     throw new DownloadAllError("Missing download URL for asset", 400);
   }
 
-  // Handle /api/downloads/ path
+  // Handle /api/downloads/ path with optional session parameter
   let normalized = asset.downloadUrl.replace(/^\/+/, "");
   let filename: string;
+  let extractedSessionId: string | undefined;
   
   if (normalized.startsWith("api/downloads/")) {
-    filename = normalized.replace("api/downloads/", "");
+    // Extract filename and session from URL
+    const urlParts = normalized.replace("api/downloads/", "").split("?");
+    filename = urlParts[0];
+    
+    // Extract session from query string if present
+    if (urlParts[1]) {
+      const params = new URLSearchParams(urlParts[1]);
+      extractedSessionId = params.get("session") || undefined;
+    }
   } else {
     throw new DownloadAllError("Invalid asset path", 400);
   }
 
-  const absolutePath = join(DOWNLOADS_DIR, filename);
+  // Use sessionId from parameter or extracted from URL
+  const finalSessionId = sessionId || extractedSessionId;
+  const downloadsDir = getSessionDir(finalSessionId);
+  const absolutePath = join(downloadsDir, filename);
+  
   try {
     await access(absolutePath);
   } catch {
@@ -60,6 +80,7 @@ async function resolveAssetPath(asset: DownloadAssetInput) {
   return {
     absolutePath,
     filename: safeFilename,
+    sessionId: finalSessionId,
   };
 }
 
@@ -67,6 +88,7 @@ export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
     const assetsInput: DownloadAssetInput[] = Array.isArray(body?.assets) ? body.assets : [];
+    const sessionId = body?.sessionId || request.nextUrl.searchParams.get("session") || undefined;
 
     if (assetsInput.length === 0) {
       return NextResponse.json<DownloadAllResponse>(
@@ -75,13 +97,20 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    await mkdir(DOWNLOADS_DIR, { recursive: true });
+    const downloadsDir = getSessionDir(sessionId);
+    await mkdir(downloadsDir, { recursive: true });
 
-    const files = await Promise.all(assetsInput.map(resolveAssetPath));
+    const files = await Promise.all(assetsInput.map((asset) => resolveAssetPath(asset, sessionId)));
+
+    // Use the sessionId from the first resolved file (they should all be the same)
+    const finalSessionId = files[0]?.sessionId || sessionId;
+    const finalDownloadsDir = getSessionDir(finalSessionId);
 
     const zipFilename = `${Date.now()}-${randomUUID().slice(0, 8)}.zip`;
-    const zipPath = join(DOWNLOADS_DIR, zipFilename);
-    const zipUrl = `/api/downloads/${zipFilename}`;
+    const zipPath = join(finalDownloadsDir, zipFilename);
+    const zipUrl = finalSessionId
+      ? `/api/downloads/${zipFilename}?session=${finalSessionId}`
+      : `/api/downloads/${zipFilename}`;
 
     const output = createWriteStream(zipPath);
     const archive = archiver("zip", { zlib: { level: 9 } });

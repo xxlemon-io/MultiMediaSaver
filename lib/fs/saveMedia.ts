@@ -2,8 +2,15 @@ import { writeFile, mkdir } from "fs/promises";
 import { join } from "path";
 import { randomUUID } from "crypto";
 
-const DOWNLOADS_DIR = join(process.cwd(), "tmp", "downloads");
+const BASE_DOWNLOADS_DIR = join(process.cwd(), "tmp", "downloads");
 const MAX_FILE_SIZE = 500 * 1024 * 1024; // 500MB
+
+function getDownloadsDir(sessionId?: string): string {
+  if (sessionId) {
+    return join(BASE_DOWNLOADS_DIR, sessionId);
+  }
+  return BASE_DOWNLOADS_DIR;
+}
 
 interface SaveMediaResult {
   publicPath: string;
@@ -47,14 +54,17 @@ function generateFilename(contentType: string, suggestedName?: string): string {
 export async function saveMedia(
   buffer: Buffer,
   contentType: string,
-  suggestedName?: string
+  suggestedName?: string,
+  sessionId?: string
 ): Promise<SaveMediaResult> {
   if (buffer.length > MAX_FILE_SIZE) {
     throw new Error(`File size exceeds maximum limit of ${MAX_FILE_SIZE / 1024 / 1024}MB`);
   }
 
+  const downloadsDir = getDownloadsDir(sessionId);
+
   try {
-    await mkdir(DOWNLOADS_DIR, { recursive: true });
+    await mkdir(downloadsDir, { recursive: true });
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code !== "EEXIST") {
       throw new Error(`Failed to create downloads directory: ${error}`);
@@ -62,7 +72,7 @@ export async function saveMedia(
   }
 
   const filename = generateFilename(contentType, suggestedName);
-  const filePath = join(DOWNLOADS_DIR, filename);
+  const filePath = join(downloadsDir, filename);
 
   try {
     await writeFile(filePath, buffer);
@@ -70,8 +80,12 @@ export async function saveMedia(
     throw new Error(`Failed to save file: ${error}`);
   }
 
+  const publicPath = sessionId
+    ? `/api/downloads/${filename}?session=${sessionId}`
+    : `/api/downloads/${filename}`;
+
   return {
-    publicPath: `/api/downloads/${filename}`,
+    publicPath,
     filename,
   };
 }
