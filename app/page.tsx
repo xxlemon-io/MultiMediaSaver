@@ -1,7 +1,17 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import type { MediaAsset, ApiResponse } from "@/lib/media/types";
+
+const STORAGE_KEY = "multimedia-saver-session";
+const SESSION_EXPIRY_MS = 60 * 60 * 1000; // 1 hour
+
+interface SavedSession {
+  sessionId: string;
+  assets: MediaAsset[];
+  url: string;
+  createdAt: number;
+}
 
 export default function Home() {
   const [url, setUrl] = useState("");
@@ -11,6 +21,70 @@ export default function Home() {
   const [downloadAllLoading, setDownloadAllLoading] = useState(false);
   const [downloadAllError, setDownloadAllError] = useState("");
   const [sessionId, setSessionId] = useState<string | null>(null);
+
+  // Save session to localStorage
+  const saveSessionToStorage = (sessionId: string, assets: MediaAsset[], url: string) => {
+    try {
+      const session: SavedSession = {
+        sessionId,
+        assets,
+        url,
+        createdAt: Date.now(),
+      };
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(session));
+    } catch (error) {
+      console.error("Failed to save session to localStorage:", error);
+    }
+  };
+
+  // Load session from localStorage
+  const loadSessionFromStorage = (): SavedSession | null => {
+    try {
+      const stored = localStorage.getItem(STORAGE_KEY);
+      if (!stored) return null;
+
+      const session: SavedSession = JSON.parse(stored);
+      
+      // Check if session is expired (older than 1 hour)
+      const now = Date.now();
+      if (now - session.createdAt > SESSION_EXPIRY_MS) {
+        localStorage.removeItem(STORAGE_KEY);
+        return null;
+      }
+
+      // Validate session data
+      if (!session.sessionId || !session.assets || !Array.isArray(session.assets)) {
+        localStorage.removeItem(STORAGE_KEY);
+        return null;
+      }
+
+      return session;
+    } catch (error) {
+      console.error("Failed to load session from localStorage:", error);
+      localStorage.removeItem(STORAGE_KEY);
+      return null;
+    }
+  };
+
+  // Clear session from localStorage
+  const clearSessionFromStorage = () => {
+    try {
+      localStorage.removeItem(STORAGE_KEY);
+    } catch (error) {
+      console.error("Failed to clear session from localStorage:", error);
+    }
+  };
+
+  // Restore session on component mount
+  useEffect(() => {
+    const savedSession = loadSessionFromStorage();
+    if (savedSession) {
+      setAssets(savedSession.assets);
+      setSessionId(savedSession.sessionId);
+      setUrl(savedSession.url);
+      setStatus("success");
+    }
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -32,14 +106,21 @@ export default function Home() {
 
       if (data.ok && data.assets) {
         setAssets(data.assets);
-        setSessionId(data.sessionId || null);
+        const newSessionId = data.sessionId || null;
+        setSessionId(newSessionId);
         setStatus("success");
+        
+        // Save to localStorage
+        if (newSessionId) {
+          saveSessionToStorage(newSessionId, data.assets, url.trim());
+        }
       } else {
         setErrorMessage(
           data.message || "An error occurred. Please try again."
         );
         setStatus("error");
         setSessionId(null);
+        // Don't clear storage on error - keep previous session if exists
       }
     } catch (error) {
       if (error instanceof Error && error.name === "AbortError") {
@@ -48,6 +129,7 @@ export default function Home() {
         setErrorMessage("Network error. Please check your connection and try again.");
       }
       setStatus("error");
+      // Don't clear storage on error - keep previous session if exists
     }
   };
 
@@ -149,7 +231,20 @@ export default function Home() {
               <h2 className="text-xl font-semibold">
                 Found {assets.length} media file{assets.length > 1 ? "s" : ""}
               </h2>
-              <div className="text-right">
+              <div className="flex gap-2 items-center">
+                <button
+                  onClick={() => {
+                    clearSessionFromStorage();
+                    setAssets([]);
+                    setSessionId(null);
+                    setUrl("");
+                    setStatus("idle");
+                  }}
+                  className="px-3 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition-colors text-sm font-medium"
+                  title="Clear current session"
+                >
+                  Clear
+                </button>
                 <button
                   onClick={handleDownloadAll}
                   className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
