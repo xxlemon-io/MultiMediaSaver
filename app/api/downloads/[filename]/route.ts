@@ -38,8 +38,10 @@ export async function GET(
       );
     }
 
-    // Read file
-    const fileBuffer = await readFile(filePath);
+    // Get file stats for content-length and range support
+    const fs = require('fs');
+    const stat = fs.statSync(filePath);
+    const fileSize = stat.size;
 
     // Determine content type from filename
     const ext = filename.split(".").pop()?.toLowerCase();
@@ -56,10 +58,46 @@ export async function GET(
     };
 
     const contentType = ext ? contentTypeMap[ext] || "application/octet-stream" : "application/octet-stream";
-    
-    // For videos on iOS, use inline instead of attachment to allow playback and save
-    // For images, use attachment for direct download
     const isVideo = ext && ["mp4", "mov", "avi", "webm"].includes(ext);
+
+    // Handle Range requests for video (required for iOS)
+    const range = request.headers.get("range");
+    
+    if (range && isVideo) {
+      // Parse range header
+      const parts = range.replace(/bytes=/, "").split("-");
+      const start = parseInt(parts[0], 10);
+      const end = parts[1] ? parseInt(parts[1], 10) : fileSize - 1;
+      const chunksize = (end - start) + 1;
+
+      // Read file chunk
+      const file = fs.createReadStream(filePath, { start, end });
+      const chunks: Buffer[] = [];
+      
+      for await (const chunk of file) {
+        chunks.push(chunk);
+      }
+      
+      const buffer = Buffer.concat(chunks);
+
+      return new NextResponse(buffer, {
+        status: 206, // Partial Content
+        headers: {
+          "Content-Type": contentType,
+          "Content-Range": `bytes ${start}-${end}/${fileSize}`,
+          "Accept-Ranges": "bytes",
+          "Content-Length": chunksize.toString(),
+          "Cache-Control": "public, max-age=3600",
+          "Access-Control-Allow-Origin": "*",
+          "Access-Control-Allow-Methods": "GET, HEAD, OPTIONS",
+          "Access-Control-Allow-Headers": "Range",
+        },
+      });
+    }
+
+    // Read full file for non-range requests
+    const fileBuffer = await readFile(filePath);
+    
     const contentDisposition = isVideo
       ? `inline; filename="${filename}"`
       : `attachment; filename="${filename}"`;
@@ -68,13 +106,12 @@ export async function GET(
       headers: {
         "Content-Type": contentType,
         "Content-Disposition": contentDisposition,
+        "Content-Length": fileSize.toString(),
         "Cache-Control": "public, max-age=3600",
-        // Add CORS headers for video playback
+        "Accept-Ranges": isVideo ? "bytes" : "none",
         "Access-Control-Allow-Origin": "*",
         "Access-Control-Allow-Methods": "GET, HEAD, OPTIONS",
         "Access-Control-Allow-Headers": "Range",
-        // Support range requests for video seeking
-        "Accept-Ranges": isVideo ? "bytes" : "none",
       },
     });
   } catch (error) {

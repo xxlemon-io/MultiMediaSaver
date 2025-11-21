@@ -188,8 +188,12 @@ export default function Home() {
                         preload="metadata"
                         webkit-playsinline="true"
                         x5-playsinline="true"
+                        x5-video-player-type="h5"
+                        x5-video-player-fullscreen="true"
+                        x5-video-orientation="portraint"
                         style={{
                           WebkitTouchCallout: "default",
+                          objectFit: "cover",
                         }}
                       />
                       {/* Download button overlay for easy mobile access */}
