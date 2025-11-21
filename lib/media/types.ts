@@ -6,7 +6,7 @@ export interface MediaAsset {
   downloadUrl: string;
   contentType: string;
   filename: string;
-  provider: "twitter" | "instagram";
+  provider: "twitter" | "instagram" | "xiaohongshu";
   type: MediaType;
 }
 

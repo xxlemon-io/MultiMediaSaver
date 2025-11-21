@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import Image from "next/image";
 import type { MediaAsset, ApiResponse } from "@/lib/media/types";
 
 export default function Home() {
@@ -98,20 +97,20 @@ export default function Home() {
         <div className="text-center mb-8">
           <h1 className="text-3xl md:text-4xl font-bold mb-2">MultiMediaSaver</h1>
           <p className="text-gray-600 dark:text-gray-400">
-            Download images and videos from Twitter/X and Instagram
+            Download images and videos from Twitter/X, Instagram, and xhs(Rednote)
           </p>
           <p className="text-sm text-gray-500 dark:text-gray-500 mt-1">
-            No official API required • Instagram supported!
+            No official API required • Multiple platforms supported!
           </p>
         </div>
 
         <form onSubmit={handleSubmit} className="mb-8">
           <div className="flex flex-col md:flex-row gap-2">
             <input
-              type="url"
+              type="text"
               value={url}
               onChange={(e) => setUrl(e.target.value)}
-              placeholder="Paste Twitter/X or Instagram link here..."
+              placeholder="Paste X/Instagram or xhs(Rednote) share text here..."
               className="flex-1 px-4 py-3 border border-gray-300 dark:border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-800 dark:text-white"
               disabled={status === "loading"}
             />
@@ -168,15 +167,17 @@ export default function Home() {
                   className="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden bg-white dark:bg-gray-800"
                 >
                   {asset.type === "image" ? (
-                    <div className="relative w-full h-48">
-                      <Image
-                        src={asset.downloadUrl}
-                        alt={asset.filename}
-                        fill
-                        className="object-cover"
-                        sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
-                      />
-                    </div>
+                    <img
+                      src={asset.downloadUrl}
+                      alt={asset.filename}
+                      className="w-full h-48 object-cover cursor-pointer"
+                      style={{
+                        WebkitTouchCallout: "default",
+                        WebkitUserSelect: "auto",
+                        userSelect: "auto",
+                      }}
+                      loading="lazy"
+                    />
                   ) : (
                     <video
                       src={asset.downloadUrl}

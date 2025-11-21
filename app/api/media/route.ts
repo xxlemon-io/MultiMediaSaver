@@ -2,8 +2,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { detectProvider } from "@/lib/media/detector";
 import { twitterProvider } from "@/lib/media/fetchers/twitter";
 import { instagramProvider } from "@/lib/media/fetchers/instagram";
+import { xiaohongshuProvider } from "@/lib/media/fetchers/xiaohongshu";
 import { ApiResponse } from "@/lib/media/types";
 import { cleanUrl } from "@/lib/utils/urlCleaner";
+import { processXhsInput } from "@/lib/utils/xhsLinkResolver";
 import { resetDownloadsDir } from "@/lib/fs/resetDownloads";
 
 export async function POST(request: NextRequest) {
@@ -21,19 +23,36 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Remove query parameters and hash from URL
-    const cleanedUrl = cleanUrl(url);
     console.log("[API] Received URL:", url);
-    console.log("[API] Cleaned URL:", cleanedUrl);
 
-    const provider = detectProvider(cleanedUrl);
+    // Process input to resolve xhslink.com short links
+    let processedInput = url;
+    const detectedProvider = detectProvider(url);
+    
+    if (detectedProvider === "xiaohongshu") {
+      try {
+        processedInput = await processXhsInput(url);
+        console.log("[API] Resolved XHS link:", processedInput);
+      } catch (error) {
+        console.error("[API] Failed to resolve XHS link:", error);
+        // Continue with original input
+      }
+    }
+
+    // Detect provider using processed input
+    const provider = detectProvider(processedInput);
     console.log("[API] Detected provider:", provider);
+
+    // For xiaohongshu, keep query parameters (needed for tokens)
+    // For other providers, clean the URL
+    const processedUrl = provider === "xiaohongshu" ? processedInput : cleanUrl(processedInput);
+    console.log("[API] Processed URL:", processedUrl);
 
     if (provider === "unknown") {
       return NextResponse.json<ApiResponse>(
         {
           ok: false,
-          message: "Unsupported URL. Please provide a Twitter/X or Instagram link.",
+          message: "Unsupported URL. Please provide a Twitter/X, Instagram, or xhs(rednote) link.",
         },
         { status: 400 }
       );
@@ -45,9 +64,11 @@ export async function POST(request: NextRequest) {
     try {
       console.log(`[API] Fetching media for ${provider}...`);
       if (provider === "twitter") {
-        assets = await twitterProvider.fetchMedia(cleanedUrl);
+        assets = await twitterProvider.fetchMedia(processedUrl);
       } else if (provider === "instagram") {
-        assets = await instagramProvider.fetchMedia(cleanedUrl);
+        assets = await instagramProvider.fetchMedia(processedUrl);
+      } else if (provider === "xiaohongshu") {
+        assets = await xiaohongshuProvider.fetchMedia(processedUrl);
       } else {
         throw new Error("Unsupported provider");
       }
