@@ -1,5 +1,6 @@
 import { readdir, stat, rm } from "fs/promises";
 import { join } from "path";
+import { unregisterSession } from "./sessionLimiter";
 
 const BASE_DOWNLOADS_DIR = join(process.cwd(), "tmp", "downloads");
 
@@ -30,6 +31,7 @@ export async function cleanupExpiredSessions(): Promise<number> {
         // If directory is older than cleanup age, delete it
         if (age > CLEANUP_AGE_MS) {
           await rm(sessionDir, { recursive: true, force: true });
+          await unregisterSession(entry.name);
           cleanedCount++;
           console.log(`[Cleanup] Removed expired session: ${entry.name} (age: ${Math.round(age / 1000 / 60)} minutes)`);
         }

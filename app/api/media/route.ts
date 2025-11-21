@@ -8,6 +8,7 @@ import { cleanUrl } from "@/lib/utils/urlCleaner";
 import { processXhsInput } from "@/lib/utils/xhsLinkResolver";
 import { resetSessionDownloadsDir } from "@/lib/fs/resetDownloads";
 import { cleanupExpiredSessions } from "@/lib/fs/cleanupSessions";
+import { getClientIp, enforceSessionLimit, registerSession } from "@/lib/fs/sessionLimiter";
 import { randomUUID } from "crypto";
 
 export async function POST(request: NextRequest) {
@@ -60,9 +61,19 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Get client IP address
+    const clientIp = getClientIp(request);
+    console.log(`[API] Client IP: ${clientIp}`);
+
+    // Enforce session limit for this IP (delete oldest if needed)
+    await enforceSessionLimit(clientIp);
+
     // Generate session ID for this request
     const sessionId = randomUUID();
     console.log(`[API] Generated session ID: ${sessionId}`);
+
+    // Register the new session
+    await registerSession(sessionId, clientIp);
 
     // Asynchronously cleanup expired sessions (don't block the request)
     cleanupExpiredSessions().catch((error) => {
