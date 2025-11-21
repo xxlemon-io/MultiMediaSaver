@@ -56,12 +56,25 @@ export async function GET(
     };
 
     const contentType = ext ? contentTypeMap[ext] || "application/octet-stream" : "application/octet-stream";
+    
+    // For videos on iOS, use inline instead of attachment to allow playback and save
+    // For images, use attachment for direct download
+    const isVideo = ext && ["mp4", "mov", "avi", "webm"].includes(ext);
+    const contentDisposition = isVideo
+      ? `inline; filename="${filename}"`
+      : `attachment; filename="${filename}"`;
 
     return new NextResponse(fileBuffer, {
       headers: {
         "Content-Type": contentType,
-        "Content-Disposition": `attachment; filename="${filename}"`,
+        "Content-Disposition": contentDisposition,
         "Cache-Control": "public, max-age=3600",
+        // Add CORS headers for video playback
+        "Access-Control-Allow-Origin": "*",
+        "Access-Control-Allow-Methods": "GET, HEAD, OPTIONS",
+        "Access-Control-Allow-Headers": "Range",
+        // Support range requests for video seeking
+        "Accept-Ranges": isVideo ? "bytes" : "none",
       },
     });
   } catch (error) {

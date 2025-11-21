@@ -185,18 +185,24 @@ export default function Home() {
                         controls
                         className="w-full h-48 object-cover"
                         playsInline
+                        preload="metadata"
                         webkit-playsinline="true"
+                        x5-playsinline="true"
+                        style={{
+                          WebkitTouchCallout: "default",
+                        }}
                       />
                       {/* Download button overlay for easy mobile access */}
                       <a
                         href={asset.downloadUrl}
-                        download={asset.filename}
+                        target="_blank"
+                        rel="noopener noreferrer"
                         className="absolute top-2 right-2 bg-black/70 hover:bg-black/90 text-white p-2 rounded-full transition-colors z-20"
                         style={{
                           WebkitTouchCallout: "default",
                         }}
                         onClick={(e) => {
-                          // Allow the download to proceed
+                          // For iOS, open in new tab to allow save
                           e.stopPropagation();
                         }}
                         aria-label={`Download video ${asset.filename}`}
@@ -224,7 +230,9 @@ export default function Home() {
                     </p>
                     <a
                       href={asset.downloadUrl}
-                      download={asset.filename}
+                      download={asset.type === "image" ? asset.filename : undefined}
+                      target={asset.type === "video" ? "_blank" : undefined}
+                      rel={asset.type === "video" ? "noopener noreferrer" : undefined}
                       className="block w-full text-center px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors text-sm"
                     >
                       Download
